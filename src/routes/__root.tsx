@@ -223,6 +223,9 @@ function Footer() {
           </ul>
         </div>
       </div>
+      <div className="border-t border-border/60 py-6 text-center text-sm text-muted-foreground">
+        &copy; 2026 Khal Tyres Company Limited. All rights reserved.
+      </div>
     </footer>
   );
 }
