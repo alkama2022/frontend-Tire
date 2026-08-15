@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { api, type Product, type Review } from "@/lib/api";
+import { api, type Product, type Review, type Cart } from "@/lib/api";
 import { ensureCart } from "@/lib/cart";
 import { ArrowLeft, ChevronLeft, ChevronRight, Minus, Plus, Star, ShoppingCart, Zap } from "lucide-react";
 
@@ -48,13 +48,60 @@ function ProductDetail() {
         body: JSON.stringify({ product_id: Number(id), quantity: qty }),
       });
     },
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: ["cart"] });
+      const previousCart = qc.getQueryData<Cart>(["cart"]);
+
+      if (previousCart && product.data) {
+        const existingItem = previousCart.items.find((item) => item.product.id === Number(id));
+        let newItems;
+        if (existingItem) {
+          newItems = previousCart.items.map((item) =>
+            item.product.id === Number(id)
+              ? {
+                  ...item,
+                  quantity: item.quantity + qty,
+                  total_price: Number(item.product.price) * (item.quantity + qty),
+                }
+              : item
+          );
+        } else {
+          newItems = [
+            ...previousCart.items,
+            {
+              id: Date.now(),
+              quantity: qty,
+              product: product.data,
+              total_price: Number(product.data.price) * qty,
+            } as any,
+          ];
+        }
+
+        qc.setQueryData<Cart>(["cart"], {
+          ...previousCart,
+          items: newItems,
+          total_price: newItems.reduce(
+            (acc, item) => acc + Number(item.product.price) * item.quantity,
+            0
+          ),
+        });
+      }
+      return { previousCart };
+    },
     onSuccess: () => {
-      window.dispatchEvent(new Event("cart:updated"));
       toast.success("Added to cart", {
         action: { label: "View cart", onClick: () => navigate({ to: "/cart" }) },
       });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error, _, context) => {
+      if (context?.previousCart) {
+        qc.setQueryData(["cart"], context.previousCart);
+      }
+      toast.error(e.message);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["cart"] });
+    },
   });
 
   const [reviewForm, setReviewForm] = useState({ name: "", description: "" });

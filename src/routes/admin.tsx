@@ -354,7 +354,7 @@ function OrdersTable() {
     <TableShell columns={["ID", "Customer", "Status", "Items", "Total", "Placed"]} loading={q.isLoading} error={q.isError} empty={rows.length === 0}>
       {rows.map((o) => {
         const items = o.items ?? [];
-        const total = items.reduce((s, it) => s + Number(it.unit_price) * it.quantity, 0);
+        const total = items.reduce((s: number, it: any) => s + Number(it.unit_price) * it.quantity, 0);
         const customer = typeof o.customer === "object" && o.customer
           ? [o.customer.first_name, o.customer.last_name].filter(Boolean).join(" ") || `#${o.customer.id}`
           : o.customer

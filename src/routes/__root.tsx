@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -115,29 +115,18 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 function Header() {
-  const [count, setCount] = useState(0);
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
+  const cartQuery = useQuery({
+    queryKey: ["cart"],
+    queryFn: async () => {
       const id = getStoredCartId();
-      if (!id) return;
-      try {
-        const cart = await api<Cart>(`/cart/${id}/`);
-        if (!cancelled) setCount(cart.items.reduce((s, i) => s + i.quantity, 0));
-      } catch {
-        /* ignore */
-      }
-    }
-    load();
-    const handler = () => load();
-    window.addEventListener("cart:updated", handler);
-    return () => {
-      cancelled = true;
-      window.removeEventListener("cart:updated", handler);
-    };
-  }, []);
+      if (!id) return null;
+      return api<Cart>(`/cart/${id}/`);
+    },
+  });
+
+  const count = cartQuery.data?.items?.reduce((s, i) => s + i.quantity, 0) || 0;
 
   const navLink =
     "text-sm font-semibold uppercase tracking-wider text-foreground/80 hover:text-primary transition";

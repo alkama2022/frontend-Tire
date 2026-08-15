@@ -19,11 +19,6 @@ function CartPage() {
     queryFn: async () => ensureCart(),
   });
 
-  const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["cart"] });
-    window.dispatchEvent(new Event("cart:updated"));
-  };
-
   const updateItem = useMutation({
     mutationFn: async ({ itemId, quantity }: { itemId: number; quantity: number }) => {
       const id = getStoredCartId()!;
@@ -32,8 +27,41 @@ function CartPage() {
         body: JSON.stringify({ quantity }),
       });
     },
-    onSuccess: invalidate,
-    onError: (e: Error) => toast.error(e.message),
+    onMutate: async ({ itemId, quantity }) => {
+      await qc.cancelQueries({ queryKey: ["cart"] });
+      const previousCart = qc.getQueryData<Cart>(["cart"]);
+      
+      if (previousCart) {
+        qc.setQueryData<Cart>(["cart"], {
+          ...previousCart,
+          items: previousCart.items.map((item) => {
+            if (item.id === itemId) {
+              const newQuantity = Math.max(1, quantity);
+              return {
+                ...item,
+                quantity: newQuantity,
+                total_price: Number(item.product.price) * newQuantity,
+              };
+            }
+            return item;
+          }),
+          total_price: previousCart.items.reduce((total, item) => {
+            const qty = item.id === itemId ? Math.max(1, quantity) : item.quantity;
+            return total + Number(item.product.price) * qty;
+          }, 0)
+        });
+      }
+      return { previousCart };
+    },
+    onError: (err, newTodo, context) => {
+      if (context?.previousCart) {
+        qc.setQueryData(["cart"], context.previousCart);
+      }
+      toast.error(err.message);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["cart"] });
+    },
   });
 
   const removeItem = useMutation({
@@ -41,8 +69,30 @@ function CartPage() {
       const id = getStoredCartId()!;
       return api(`/cart/${id}/items/${itemId}/`, { method: "DELETE" });
     },
-    onSuccess: invalidate,
-    onError: (e: Error) => toast.error(e.message),
+    onMutate: async (itemId) => {
+      await qc.cancelQueries({ queryKey: ["cart"] });
+      const previousCart = qc.getQueryData<Cart>(["cart"]);
+      
+      if (previousCart) {
+        qc.setQueryData<Cart>(["cart"], {
+          ...previousCart,
+          items: previousCart.items.filter((item) => item.id !== itemId),
+          total_price: previousCart.items
+            .filter((item) => item.id !== itemId)
+            .reduce((total, item) => total + Number(item.product.price) * item.quantity, 0)
+        });
+      }
+      return { previousCart };
+    },
+    onError: (err, newTodo, context) => {
+      if (context?.previousCart) {
+        qc.setQueryData(["cart"], context.previousCart);
+      }
+      toast.error(err.message);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["cart"] });
+    },
   });
 
   if (cart.isLoading) {
@@ -121,7 +171,7 @@ function CartPage() {
 
           {data && <CheckoutPanel cart={data} onDone={() => {
             clearStoredCartId();
-            invalidate();
+            qc.invalidateQueries({ queryKey: ["cart"] });
           }} />}
         </div>
       )}
