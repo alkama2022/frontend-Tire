@@ -234,9 +234,6 @@ function Footer() {
           </ul>
         </div>
       </div>
-      <div className="border-t border-border/60 py-4 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} Khal Tyres Company Limited. All rights reserved.
-      </div>
     </footer>
   );
 }
