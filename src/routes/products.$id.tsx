@@ -7,6 +7,16 @@ import { ensureCart } from "@/lib/cart";
 import { ArrowLeft, ChevronLeft, ChevronRight, Minus, Plus, Star, ShoppingCart, Zap } from "lucide-react";
 
 export const Route = createFileRoute("/products/$id")({
+  loader: async ({ context: { queryClient }, params: { id } }) => {
+    queryClient.ensureQueryData({
+      queryKey: ["product", id],
+      queryFn: () => api<Product>(`/products/${id}/`),
+    });
+    queryClient.ensureQueryData({
+      queryKey: ["reviews", id],
+      queryFn: () => api<Review[] | { results: Review[] }>(`/products/${id}/reviews/`),
+    });
+  },
   component: ProductDetail,
   head: () => ({
     meta: [{ title: "Product — Apex Tyres" }],
@@ -135,6 +145,7 @@ function ProductDetail() {
                 src={active.image}
                 alt={p.model_name}
                 className="h-full w-full object-cover transition-opacity duration-300"
+                fetchPriority="high"
               />
             ) : (
               <div className="flex h-full items-center justify-center">

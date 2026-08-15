@@ -20,6 +20,30 @@ export const Route = createFileRoute("/products/")({
     ordering: typeof s.ordering === "string" ? s.ordering : undefined,
     page: s.page ? Number(s.page) : undefined,
   }),
+  loaderDeps: ({ search }) => ({ ...search }),
+  loader: async ({ context: { queryClient }, deps }) => {
+    queryClient.ensureQueryData({
+      queryKey: ["brands"],
+      queryFn: () => api<Paginated<Brand> | Brand[]>(`/productsBrand/`),
+    });
+    queryClient.ensureQueryData({
+      queryKey: ["cats"],
+      queryFn: () => api<Paginated<Category> | Category[]>(`/productsCategories/`),
+    });
+    queryClient.ensureQueryData({
+      queryKey: ["products", deps],
+      queryFn: () =>
+        api<Paginated<Product>>(`/products/`, {
+          params: {
+            search: deps.search,
+            brand: deps.brand,
+            category: deps.category,
+            ordering: deps.ordering,
+            page: deps.page,
+          },
+        }),
+    });
+  },
   component: ProductsPage,
   head: () => ({
     meta: [
@@ -151,8 +175,8 @@ function ProductsPage() {
             <p className="text-muted-foreground">No products match your filters.</p>
           )}
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {results.map((p) => (
-              <ProductCard key={p.id} product={p} />
+            {results.map((p, index) => (
+              <ProductCard key={p.id} product={p} isLcp={index < 4} />
             ))}
           </div>
 

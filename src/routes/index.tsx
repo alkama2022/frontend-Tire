@@ -1,10 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api, type Brand, type Paginated, type Product } from "@/lib/api";
-import { ArrowRight, ShieldCheck, Truck, Wrench } from "lucide-react";
+import { ArrowRight, ShieldCheck, Truck, Wrench, PackageOpen, CircleDashed } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Home,
+  loader: async ({ context: { queryClient } }) => {
+    queryClient.ensureQueryData({
+      queryKey: ["featured-products"],
+      queryFn: () => api<Paginated<Product> | Product[]>(`/products/?ordering=-id`),
+    });
+    queryClient.ensureQueryData({
+      queryKey: ["home-brands"],
+      queryFn: () => api<Paginated<Brand> | Brand[]>(`/productsBrand/`),
+    });
+  },
 });
 
 function Home() {
@@ -51,13 +61,13 @@ function Home() {
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 to="/products"
-                className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-widest text-primary-foreground hover:brightness-110 transition"
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-widest text-primary-foreground hover:brightness-110 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95"
               >
                 Shop tyres <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 to="/products"
-                className="inline-flex items-center gap-2 rounded-md border border-border px-6 py-3 text-sm font-semibold uppercase tracking-widest hover:border-primary hover:text-primary transition"
+                className="inline-flex items-center gap-2 rounded-md border border-border px-6 py-3 text-sm font-semibold uppercase tracking-widest hover:border-primary hover:text-primary transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95"
               >
                 Find my size
               </Link>
@@ -103,7 +113,7 @@ function Home() {
           <h2 className="font-display text-3xl uppercase sm:text-4xl">
             Fresh <span className="text-primary">rubber</span>
           </h2>
-          <Link to="/products" className="text-sm font-semibold uppercase tracking-widest hover:text-primary">
+          <Link to="/products" className="text-sm font-semibold uppercase tracking-widest hover:text-primary rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
             View all →
           </Link>
         </div>
@@ -111,11 +121,15 @@ function Home() {
           {featured.isLoading && Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-72 animate-pulse rounded-lg bg-surface" />
           ))}
-          {products.map((p) => (
-            <ProductCard key={p.id} product={p} />
+          {products.map((p, index) => (
+            <ProductCard key={p.id} product={p} isLcp={index < 2} />
           ))}
           {!featured.isLoading && products.length === 0 && (
-            <p className="text-muted-foreground">No products yet.</p>
+            <div className="col-span-full flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-12 text-center">
+              <PackageOpen className="mb-4 h-10 w-10 text-muted-foreground/30" />
+              <p className="text-lg font-semibold text-foreground">No products found</p>
+              <p className="mt-1 text-sm text-muted-foreground">Check back later for new arrivals.</p>
+            </div>
           )}
         </div>
       </section>
@@ -133,7 +147,7 @@ function Home() {
                   key={b.id}
                   to="/products"
                   search={{ brand: b.id }}
-                  className="rounded-md border border-border px-4 py-2 font-display text-xl uppercase tracking-wide hover:border-primary hover:text-primary transition"
+                  className="rounded-md border border-border px-4 py-2 font-display text-xl uppercase tracking-wide hover:border-primary hover:text-primary transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95"
                 >
                   {b.name}
                 </Link>
@@ -146,13 +160,13 @@ function Home() {
   );
 }
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({ product, isLcp }: { product: Product; isLcp?: boolean }) {
   const img = product.images?.find((i) => i.is_primary) || product.images?.[0];
   return (
     <Link
       to="/products/$id"
       params={{ id: String(product.id) }}
-      className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card transition hover:border-primary"
+      className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card transition hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <div className="relative aspect-square overflow-hidden bg-surface">
         {img ? (
@@ -160,11 +174,12 @@ export function ProductCard({ product }: { product: Product }) {
             src={img.image}
             alt={product.model_name}
             className="h-full w-full object-cover transition group-hover:scale-105"
-            loading="lazy"
+            loading={isLcp ? undefined : "lazy"}
+            fetchPriority={isLcp ? "high" : undefined}
           />
         ) : (
-          <div className="flex h-full items-center justify-center">
-            <div className="h-3/4 w-3/4 rounded-full border-8 border-foreground/70" />
+          <div className="flex h-full items-center justify-center text-muted-foreground/30">
+            <CircleDashed className="h-20 w-20" />
           </div>
         )}
         <div className="absolute left-3 top-3 rounded bg-background/90 px-2 py-1 text-xs font-semibold uppercase tracking-wider">
