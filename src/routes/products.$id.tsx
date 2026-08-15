@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { api, type Product, type Review, type Cart } from "@/lib/api";
-import { ensureCart } from "@/lib/cart";
+import { ensureCart, getOrCreateCartId, clearStoredCartId } from "@/lib/cart";
 import { ArrowLeft, ChevronLeft, ChevronRight, Minus, Plus, Star, ShoppingCart, Zap } from "lucide-react";
 
 export const Route = createFileRoute("/products/$id")({
@@ -42,11 +42,23 @@ function ProductDetail() {
 
   const addToCart = useMutation({
     mutationFn: async () => {
-      const cart = await ensureCart();
-      return api(`/cart/${cart.id}/items/`, {
-        method: "POST",
-        body: JSON.stringify({ product_id: Number(id), quantity: qty }),
-      });
+      let cartId = await getOrCreateCartId();
+      try {
+        return await api(`/cart/${cartId}/items/`, {
+          method: "POST",
+          body: JSON.stringify({ product_id: Number(id), quantity: qty }),
+        });
+      } catch (err: any) {
+        if (err.message && err.message.includes("404")) {
+          clearStoredCartId();
+          cartId = await getOrCreateCartId();
+          return await api(`/cart/${cartId}/items/`, {
+            method: "POST",
+            body: JSON.stringify({ product_id: Number(id), quantity: qty }),
+          });
+        }
+        throw err;
+      }
     },
     onMutate: async () => {
       await qc.cancelQueries({ queryKey: ["cart"] });

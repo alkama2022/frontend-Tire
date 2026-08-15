@@ -28,3 +28,12 @@ export async function ensureCart(): Promise<Cart> {
   setStoredCartId(created.id);
   return created;
 }
+
+export async function getOrCreateCartId(): Promise<string> {
+  const existing = getStoredCartId();
+  if (existing) return existing;
+  
+  const created = await api<Cart>(`/cart/`, { method: "POST", body: JSON.stringify({}) });
+  setStoredCartId(created.id);
+  return created.id;
+}
